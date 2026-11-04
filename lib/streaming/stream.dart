@@ -173,29 +173,37 @@ class _StreamScreenState extends State<StreamScreen> with LandscapeLock {
       },
       child: Scaffold(
         backgroundColor: Colors.black,
+        // Every child is positioned, so the stack fills the screen rather than shrinking to the top bar.
         body: Stack(
+          fit: StackFit.expand,
           children: [
             Positioned.fill(child: preview),
-            SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(8),
-                child: Row(
-                  children: [
-                    const BackButton(color: Colors.white),
-                    Expanded(
-                      child: Text(
-                        '${_match.title}   ·   ${_match.id}',
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
-                        overflow: TextOverflow.ellipsis,
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: SafeArea(
+                bottom: false,
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Row(
+                    children: [
+                      const BackButton(color: Colors.white),
+                      Expanded(
+                        child: Text(
+                          '${_match.title}   ·   ${_match.id}',
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                    ),
-                    if (_state == 'live')
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(color: colors.error, borderRadius: BorderRadius.circular(4)),
-                        child: const Text('LIVE', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
-                      ),
-                  ],
+                      if (_state == 'live')
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(color: colors.error, borderRadius: BorderRadius.circular(4)),
+                          child: const Text('LIVE', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ),

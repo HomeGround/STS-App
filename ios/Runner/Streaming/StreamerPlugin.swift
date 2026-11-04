@@ -71,13 +71,43 @@ final class StreamerPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
   }
 
   /// What is being streamed, as the viewers will see it: the camera with the ticker on top.
-  fileprivate func makePreview() -> UIView {
-    let view = MTHKView(frame: .zero)
+  fileprivate func makePreview(frame: CGRect) -> UIView {
+    let container = PreviewContainer(frame: frame)
     Task { @MainActor in
       guard let streamer = self.streamer else { return }
-      await streamer.mixer.addOutput(view)
+      await streamer.mixer.addOutput(container.preview)
     }
-    return view
+    return container
+  }
+}
+
+/// Keeps the preview, and the Metal surface it draws into, the same size as the space Flutter gives it.
+/// Flutter resizes platform views after creating them, and on its own the Metal surface keeps its first,
+/// tiny size, so the picture shows as a small box.
+private final class PreviewContainer: UIView {
+  let preview: MTHKView
+
+  override init(frame: CGRect) {
+    preview = MTHKView(frame: CGRect(origin: .zero, size: frame.size))
+    super.init(frame: frame)
+    backgroundColor = .black
+    // The stream is 16:9 and the screen is usually wider, so show all of it with thin bars at the sides.
+    // Filling the screen instead would crop the top and bottom, where the ticker is.
+    preview.videoGravity = .resizeAspect
+    preview.autoResizeDrawable = false
+    addSubview(preview)
+  }
+
+  required init?(coder: NSCoder) {
+    fatalError("init(coder:) is not used")
+  }
+
+  override func layoutSubviews() {
+    super.layoutSubviews()
+    preview.frame = bounds
+    let scale = window?.screen.scale ?? UIScreen.main.scale
+    preview.contentScaleFactor = scale
+    preview.drawableSize = CGSize(width: bounds.width * scale, height: bounds.height * scale)
   }
 }
 
@@ -89,7 +119,7 @@ private final class PreviewFactory: NSObject, FlutterPlatformViewFactory {
   }
 
   func create(withFrame frame: CGRect, viewIdentifier viewId: Int64, arguments args: Any?) -> FlutterPlatformView {
-    PreviewPlatformView(plugin?.makePreview() ?? UIView())
+    PreviewPlatformView(plugin?.makePreview(frame: frame) ?? UIView(frame: frame))
   }
 }
 
