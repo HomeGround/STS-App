@@ -28,6 +28,8 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>STS films the match for your live stream.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>STS connects to the score server on your network to share live scores between the scoring and streaming devices.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>STS records the match sound for your live stream.</string>
 	<key>UIApplicationSceneManifest</key>

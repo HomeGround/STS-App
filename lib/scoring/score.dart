@@ -1,6 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../mqtt/match_broadcast.dart';
 import '../scoring_rules/pickleball_rules.dart';
 import '../widgets/landscape_lock.dart';
 import 'match_setup.dart';
@@ -9,12 +11,25 @@ import 'winner_splash.dart';
 
 /// Records the match rally by rally. Asks who serves and receives first at the start of each game.
 class ScoreScreen extends StatefulWidget {
-  const ScoreScreen({super.key, required this.match, required this.applyAction});
+  const ScoreScreen({
+    super.key,
+    required this.match,
+    required this.applyAction,
+    required this.broadcast,
+    this.streamLink,
+  });
 
   final MatchSetup match;
 
   /// Saves each action to the database, such as `GamesApi.applyAction`.
   final ApplyAction applyAction;
+
+  /// Sends the match to the streaming devices, such as `MatchBroadcast.publish`. Only ever given
+  /// what the database confirmed, so the stream never shows a point that wasn't saved.
+  final void Function(String matchId, Map<String, Object?> message) broadcast;
+
+  /// Whether those updates are reaching the MQTT broker, such as `MatchBroadcast.status`.
+  final ValueListenable<LinkStatus>? streamLink;
 
   @override
   State<ScoreScreen> createState() => _ScoreScreenState();
@@ -29,7 +44,18 @@ class _ScoreScreenState extends State<ScoreScreen> with LandscapeLock {
     gameId: widget.match.id,
     scorerToken: widget.match.scorerToken,
     applyAction: widget.applyAction,
+    onSaved: (saved) => _broadcast(version: saved.version, state: saved.state),
   );
+
+  void _broadcast({required int version, required Map<String, dynamic> state}) =>
+      widget.broadcast(widget.match.id, matchMessage(widget.match, version: version, state: state));
+
+  @override
+  void initState() {
+    super.initState();
+    // Lets streaming devices find the match and show the names before the first point.
+    _broadcast(version: 0, state: const {});
+  }
 
   @override
   void dispose() {
@@ -182,6 +208,8 @@ class _ScoreScreenState extends State<ScoreScreen> with LandscapeLock {
       appBar: AppBar(
         title: Text('Game ${state.game}'),
         actions: [
+          if (widget.streamLink case final link?)
+            ValueListenableBuilder(valueListenable: link, builder: (context, status, _) => _LinkSymbol(status)),
           ListenableBuilder(listenable: _sync, builder: (context, _) => _SyncStatus(_sync)),
           TextButton.icon(
             icon: const Icon(Icons.copy, size: 16),
@@ -232,6 +260,34 @@ class _ScoreScreenState extends State<ScoreScreen> with LandscapeLock {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Whether the score is reaching the streaming devices over MQTT. Tap it for the details.
+class _LinkSymbol extends StatelessWidget {
+  const _LinkSymbol(this.status);
+
+  final LinkStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final (icon, color, message) = switch (status) {
+      (state: LinkState.connected, problem: _) => (Icons.sensors, Colors.green, 'Live score link connected'),
+      (state: LinkState.connecting, problem: _) => (Icons.sensors, colors.outline, 'Connecting the live score link…'),
+      (state: LinkState.offline, :final problem) => (
+        Icons.sensors_off,
+        colors.error,
+        'Not reaching streamers. ${problem ?? ''}',
+      ),
+    };
+    return IconButton(
+      icon: Icon(icon, color: color),
+      tooltip: message,
+      onPressed: () => ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(message))),
     );
   }
 }

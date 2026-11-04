@@ -1,8 +1,10 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sts/mqtt/match_broadcast.dart';
 import 'package:sts/onboarding/sport.dart';
 import 'package:sts/scoring/match_setup.dart';
 import 'package:sts/scoring/score.dart';
@@ -34,9 +36,14 @@ void main() {
   /// What the screen sent to the stand-in database, in order.
   late List<ActionRequest> sent;
 
-  /// [applyAction] stands in for the database. By default it accepts every action.
-  Future<void> pumpScreen(WidgetTester tester, {ApplyAction? applyAction}) async {
+  /// What the screen published for the streaming devices, in order.
+  late List<Map<String, Object?>> published;
+
+  /// [applyAction] stands in for the database. By default it accepts every action and
+  /// answers with a state naming the version, so tests can see which state was published.
+  Future<void> pumpScreen(WidgetTester tester, {ApplyAction? applyAction, ValueListenable<LinkStatus>? streamLink}) async {
     sent = [];
+    published = [];
     tester.view.physicalSize = const Size(1600, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -46,8 +53,14 @@ void main() {
         applyAction: applyAction ??
             (request) async {
               sent.add(request);
-              return request.expectedVersion + 1;
+              final version = request.expectedVersion + 1;
+              return (version: version, state: <String, dynamic>{'call': 'v$version'});
             },
+        streamLink: streamLink,
+        broadcast: (matchId, message) {
+          expect(matchId, 'K7P2QXAB');
+          published.add(message);
+        },
       ),
     ));
   }
@@ -160,6 +173,55 @@ void main() {
     expect(tester.widget<IconButton>(find.widgetWithIcon(IconButton, Icons.undo)).onPressed, isNull);
   });
 
+  testWidgets('publishes the match when the screen opens, then each state the database confirms', (tester) async {
+    await pumpScreen(tester);
+    expect(published, hasLength(1), reason: 'streamers can find the match before the first point');
+    expect(published.single, {
+      'id': 'K7P2QXAB',
+      'status': 'setup',
+      'match_format': 'doubles',
+      'version': 0,
+      'state': <String, dynamic>{},
+      'sides': [
+        {'side_number': 1, 'display_name': 'Smashers', 'players': ['Ana Smith', 'Raj Patel']},
+        {'side_number': 2, 'display_name': 'Wong / Khan', 'players': ['Lee Wong', 'Mo Khan']},
+      ],
+    });
+
+    await startGame(tester, server: 'Ana Smith', receiver: 'Mo Khan');
+    await tap(tester, 'Smashers');
+    expect(published.map((m) => m['version']), [0, 1, 2]);
+    expect(published.map((m) => (m['state'] as Map)['call']), [null, 'v1', 'v2'],
+        reason: "what's published is the database's state, not the phone's own");
+  });
+
+  testWidgets('a small symbol shows whether the score reaches the streamers', (tester) async {
+    final link = ValueNotifier<LinkStatus>((state: LinkState.connecting, problem: null));
+    addTearDown(link.dispose);
+    await pumpScreen(tester, streamLink: link);
+    expect(find.byTooltip('Connecting the live score link…'), findsOneWidget);
+
+    link.value = (state: LinkState.connected, problem: null);
+    await tester.pump();
+    expect(find.byIcon(Icons.sensors), findsOneWidget);
+    expect(find.byTooltip('Live score link connected'), findsOneWidget);
+
+    link.value = (state: LinkState.offline, problem: 'The score server rejected the MQTT username or password.');
+    await tester.pump();
+    expect(find.byIcon(Icons.sensors_off), findsOneWidget);
+    await tester.tap(find.byIcon(Icons.sensors_off));
+    await tester.pump();
+    expect(find.text('Not reaching streamers. The score server rejected the MQTT username or password.'),
+        findsWidgets, reason: 'tapping explains what is wrong');
+  });
+
+  testWidgets('never publishes a point the database did not save', (tester) async {
+    await pumpScreen(tester, applyAction: (request) => Future.error(Exception('offline')));
+    await startGame(tester, server: 'Ana Smith', receiver: 'Mo Khan');
+    await tap(tester, 'Smashers');
+    expect(published.map((m) => m['version']), [0]);
+  });
+
   testWidgets('sends each game start, rally and undo to the database in order', (tester) async {
     await pumpScreen(tester);
     await startGame(tester, server: 'Ana Smith', receiver: 'Mo Khan');
@@ -179,7 +241,7 @@ void main() {
 
   testWidgets('shows points waiting for the database, and a retry when saving fails', (tester) async {
     var online = false;
-    final pending = Completer<int>();
+    final pending = Completer<SavedAction>();
     await pumpScreen(
       tester,
       applyAction: (request) {
@@ -199,7 +261,7 @@ void main() {
     expect(find.text('2 saving'), findsOneWidget);
     expect(sent.last.clientEventId, sent.first.clientEventId, reason: 'a retry keeps the same ID');
 
-    pending.complete(1);
+    pending.complete((version: 1, state: <String, dynamic>{}));
     await tester.pump();
     expect(find.byTooltip('All points saved'), findsOneWidget);
   });

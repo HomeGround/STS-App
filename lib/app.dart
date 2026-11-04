@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
 import 'backend/games_api.dart';
+import 'mqtt/broker.dart';
+import 'mqtt/match_broadcast.dart';
+import 'mqtt/match_feed.dart';
 import 'onboarding/role.dart';
 import 'onboarding/select_sport_screen.dart';
 import 'scoring/game_setup.dart';
@@ -10,6 +13,11 @@ import 'streaming/configure_stream.dart';
 import 'streaming/stream.dart';
 
 const _brandOrange = Color(0xFFED9440);
+
+/// The scorer saves to the database and publishes to MQTT; the streamer only reads MQTT.
+final _broker = BrokerSettings.fromEnvironment();
+final _broadcast = MatchBroadcast(_broker);
+final _feed = MatchFeed(_broker);
 
 class StsApp extends StatelessWidget {
   const StsApp({super.key});
@@ -42,8 +50,15 @@ class StsApp extends StatelessWidget {
                   TeamDetailsScreen(
                     game: game,
                     createGame: const GamesApi().createGame,
-                    onStart: (context, match) =>
-                        _push(context, ScoreScreen(match: match, applyAction: const GamesApi().applyAction)),
+                    onStart: (context, match) => _push(
+                      context,
+                      ScoreScreen(
+                        match: match,
+                        applyAction: const GamesApi().applyAction,
+                        broadcast: _broadcast.publish,
+                        streamLink: _broadcast.status,
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -51,9 +66,8 @@ class StsApp extends StatelessWidget {
             onStream: (context) => _push(
               context,
               ConfigureStreamScreen(
-                lookupMatch: const GamesApi().tickerSnapshot,
-                onOpen: (context, setup) =>
-                    _push(context, StreamScreen(setup: setup, fetchSnapshot: const GamesApi().tickerSnapshot)),
+                lookupMatch: _feed.lookup,
+                onOpen: (context, setup) => _push(context, StreamScreen(setup: setup, watchMatch: _feed.watch)),
               ),
             ),
           ),

@@ -10,7 +10,7 @@ import 'ticker_snapshot.dart';
 class ConfigureStreamScreen extends StatefulWidget {
   const ConfigureStreamScreen({super.key, required this.lookupMatch, required this.onOpen});
 
-  /// Finds a match by its ID, such as `GamesApi.tickerSnapshot`. Null if there's no such match.
+  /// Finds a match by its ID, such as `MatchFeed.lookup`. Null if no scorer has published it.
   final Future<TickerSnapshot?> Function(String matchId) lookupMatch;
   final void Function(BuildContext context, StreamSetup setup) onOpen;
 
@@ -61,7 +61,11 @@ class _ConfigureStreamScreenState extends State<ConfigureStreamScreen> {
       final match = await widget.lookupMatch(_matchId.text);
       if (!mounted) return;
       if (match == null) {
-        setState(() => _matchProblem = 'No match has the ID ${_matchId.text}. Check it on the scoring device.');
+        setState(
+          () => _matchProblem =
+              'No match has the ID ${_matchId.text}. Check it on the scoring device, '
+              'and that its scoring screen is open.',
+        );
         return;
       }
       await (await SharedPreferences.getInstance()).setString(_streamKeyPreference, _streamKey.text.trim());
@@ -71,8 +75,13 @@ class _ConfigureStreamScreenState extends State<ConfigureStreamScreen> {
         StreamSetup(match: match, url: destination.url!, quality: _quality, frameRate: _frameRate),
       );
     } catch (error) {
-      debugPrint('get_ticker_snapshot failed: $error');
-      if (mounted) setState(() => _matchProblem = "Couldn't look up the match. Check the connection and try again.");
+      debugPrint('Match lookup failed: $error');
+      if (mounted) {
+        setState(
+          () => _matchProblem =
+              "Couldn't reach the score server. Check this phone is on the same network as the server, then try again.",
+        );
+      }
     } finally {
       if (mounted) setState(() => _isChecking = false);
     }

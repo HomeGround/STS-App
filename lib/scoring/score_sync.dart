@@ -11,20 +11,26 @@ typedef ActionRequest = ({
   DateTime occurredAt,
 });
 
-/// Saves an action and returns the match's new version.
-typedef ApplyAction = Future<int> Function(ActionRequest request);
+/// The match after the database applied an action: its new version and its state, as `apply_action` returns them.
+typedef SavedAction = ({int version, Map<String, dynamic> state});
+
+/// Saves an action and returns the match as the database now has it.
+typedef ApplyAction = Future<SavedAction> Function(ActionRequest request);
 
 /// Sends the scorer's actions to the database one at a time, in the order they were recorded.
 ///
 /// Each action keeps its `client_event_id` across retries, so the database never records it twice.
 /// If an action fails, sending stops until [retry], because every later point depends on the earlier ones.
 class ScoreSync extends ChangeNotifier {
-  ScoreSync({required this.gameId, required this.scorerToken, required ApplyAction applyAction})
+  ScoreSync({required this.gameId, required this.scorerToken, required ApplyAction applyAction, this.onSaved})
       : _applyAction = applyAction;
 
   final String gameId;
   final String scorerToken;
   final ApplyAction _applyAction;
+
+  /// Called with the database's state after each action it confirms, in order.
+  final void Function(SavedAction saved)? onSaved;
 
   final _waiting = <({String clientEventId, Map<String, Object?> action, DateTime occurredAt})>[];
 
@@ -57,7 +63,7 @@ class ScoreSync extends ChangeNotifier {
     try {
       while (_waiting.isNotEmpty && !_isDisposed) {
         final next = _waiting.first;
-        _version = await _applyAction((
+        final saved = await _applyAction((
           gameId: gameId,
           scorerToken: scorerToken,
           clientEventId: next.clientEventId,
@@ -65,7 +71,9 @@ class ScoreSync extends ChangeNotifier {
           action: next.action,
           occurredAt: next.occurredAt,
         ));
+        _version = saved.version;
         _waiting.removeAt(0);
+        if (!_isDisposed) onSaved?.call(saved);
         if (!_isDisposed) notifyListeners();
       }
     } catch (error) {

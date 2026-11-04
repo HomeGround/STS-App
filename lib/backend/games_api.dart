@@ -3,7 +3,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../scoring/match_setup.dart';
 import '../scoring/score_sync.dart';
 import '../scoring_rules/pickleball_rules.dart';
-import '../streaming/ticker_snapshot.dart';
 
 /// Calls the database functions that create and change matches. The app never writes to the tables directly.
 class GamesApi {
@@ -35,16 +34,9 @@ class GamesApi {
     return (id: created['id'] as String, scorerToken: created['scorer_token'] as String);
   }
 
-  /// The names and latest score for the ticker, or null if no match has this ID. Read-only: anyone with the
-  /// match ID can see this, but only the scorer's token can change the score.
-  Future<TickerSnapshot?> tickerSnapshot(String matchId) async {
-    final result = await _client.rpc('get_ticker_snapshot', params: {'p_game_id': matchId});
-    return result == null ? null : TickerSnapshot.fromJson(result as Map<String, dynamic>);
-  }
-
-  /// Records one scoring action. The database applies the rules and returns the match's new version.
+  /// Records one scoring action. The database applies the rules and returns the match's new version and state.
   /// Sending the same `clientEventId` again is safe: the database recognises it and records nothing new.
-  Future<int> applyAction(ActionRequest request) async {
+  Future<SavedAction> applyAction(ActionRequest request) async {
     final result = await _client.rpc('apply_action', params: {
       'p_game_id': request.gameId,
       'p_scorer_token': request.scorerToken,
@@ -53,6 +45,7 @@ class GamesApi {
       'p_action': request.action,
       'p_occurred_at': request.occurredAt.toIso8601String(),
     });
-    return ((result as Map<String, dynamic>)['version'] as num).toInt();
+    final saved = result as Map<String, dynamic>;
+    return (version: (saved['version'] as num).toInt(), state: saved['state'] as Map<String, dynamic>);
   }
 }

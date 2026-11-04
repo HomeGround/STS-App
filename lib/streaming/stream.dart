@@ -12,16 +12,13 @@ import 'ticker_snapshot.dart';
 
 /// Films the match and streams it with the live ticker burned into the video.
 class StreamScreen extends StatefulWidget {
-  const StreamScreen({super.key, required this.setup, required this.fetchSnapshot, this.streamer = const Streamer()});
+  const StreamScreen({super.key, required this.setup, required this.watchMatch, this.streamer = const Streamer()});
 
   final StreamSetup setup;
 
-  /// Gets the latest score, such as `GamesApi.tickerSnapshot`.
-  final Future<TickerSnapshot?> Function(String matchId) fetchSnapshot;
+  /// Every update the scorer publishes for the match, such as `MatchFeed.watch`.
+  final Stream<TickerSnapshot> Function(String matchId) watchMatch;
   final Streamer streamer;
-
-  /// How often to check for a new score, until MQTT delivers updates.
-  static const refreshInterval = Duration(milliseconds: 1500);
 
   @override
   State<StreamScreen> createState() => _StreamScreenState();
@@ -35,8 +32,10 @@ class _StreamScreenState extends State<StreamScreen> with LandscapeLock {
   /// `idle`, `connecting`, `live` or `stopping`, as the native streamer reports it.
   var _state = 'idle';
   StreamSubscription<StreamerEvent>? _events;
-  Timer? _refreshTimer;
-  var _isRefreshing = false;
+  StreamSubscription<TickerSnapshot>? _updates;
+
+  /// Ticker redraws run one after another, so the last one always shows the newest score.
+  var _drawing = Future<void>.value();
 
   bool get _isOnAir => _state == 'live' || _state == 'connecting';
 
@@ -49,7 +48,7 @@ class _StreamScreenState extends State<StreamScreen> with LandscapeLock {
 
   @override
   void dispose() {
-    _refreshTimer?.cancel();
+    _updates?.cancel();
     _events?.cancel();
     widget.streamer.shutdown();
     super.dispose();
@@ -61,28 +60,23 @@ class _StreamScreenState extends State<StreamScreen> with LandscapeLock {
       await _drawTicker();
       if (!mounted) return;
       setState(() => _isCameraReady = true);
-      _refreshTimer = Timer.periodic(StreamScreen.refreshInterval, (_) => _refresh());
+      _updates = widget.watchMatch(_match.id).listen(
+        _onUpdate,
+        // The connection retries by itself; the ticker keeps the last score meanwhile.
+        onError: (Object error) => debugPrint('Match updates failed: $error'),
+      );
     } on PlatformException catch (error) {
       if (mounted) setState(() => _cameraProblem = error.message);
     }
   }
 
-  /// Fetches the latest score and redraws the ticker only when it changed.
-  Future<void> _refresh() async {
-    if (_isRefreshing) return;
-    _isRefreshing = true;
-    try {
-      final latest = await widget.fetchSnapshot(_match.id);
-      if (latest != null && latest.version != _match.version && mounted) {
-        setState(() => _match = latest);
-        await _drawTicker();
-      }
-    } catch (error) {
-      // A missed check is fine: the next one catches up.
-      debugPrint('Ticker refresh failed: $error');
-    } finally {
-      _isRefreshing = false;
-    }
+  /// Redraws the ticker for a newer score. Repeats and older messages are ignored.
+  void _onUpdate(TickerSnapshot latest) {
+    if (latest.version <= _match.version || !mounted) return;
+    setState(() => _match = latest);
+    _drawing = _drawing.then((_) => _drawTicker()).catchError((Object error) {
+      debugPrint('Ticker redraw failed: $error');
+    });
   }
 
   Future<void> _drawTicker() async {

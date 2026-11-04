@@ -75,7 +75,7 @@ void main() {
     await tester.pump();
     await openCamera(tester);
     expect(opened, isNull);
-    expect(find.text('No match has the ID ZZZZZZZZ. Check it on the scoring device.'), findsOneWidget);
+    expect(find.textContaining('No match has the ID ZZZZZZZZ.'), findsOneWidget);
   });
 
   testWidgets('says when the stream key is YouTube\'s server address instead', (tester) async {
