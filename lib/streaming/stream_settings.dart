@@ -24,6 +24,9 @@ class StreamSetup {
   final int frameRate;
 }
 
+/// The web ticker page for a match. It follows the scorer's MQTT messages and is snapshotted onto the video.
+Uri webTickerPage(String matchId) => Uri.parse('https://ticker.homegroundapp.com/match/$matchId');
+
 /// A bare stream key is sent to YouTube's ingest server.
 const youTubeIngestUrl = 'rtmp://a.rtmp.youtube.com/live2';
 

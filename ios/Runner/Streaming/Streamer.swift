@@ -14,8 +14,8 @@ struct StreamerError: LocalizedError {
 /// The camera, the ticker overlay and RTMP publishing for the Stream screen.
 /// Adapted from the SportsStreaming app's PushRTMP. Flutter drives it through StreamerPlugin.
 ///
-/// The stream canvas has two layers: the back camera, and on top of it the ticker image that Flutter draws
-/// whenever the score changes. Both are composited on the GPU and encoded as H.264.
+/// The stream canvas has two layers: the back camera, and on top of it snapshots of the web ticker page
+/// (see WebTicker). Both are composited on the GPU and encoded as H.264.
 @MainActor
 final class Streamer {
   enum State: String {
@@ -36,13 +36,23 @@ final class Streamer {
   private var frameRate = 30
   private static var isRTMPRegistered = false
 
+  /// The ticker page is always laid out at this size, so it looks the same at every stream resolution.
+  private static let tickerPageSize = CGSize(width: 1280, height: 720)
+  private var webTicker: WebTicker?
+  private var webTickerPage: (url: URL, fps: Double)?
+
   /// Opens the camera and microphone and sets up the canvas. Safe to call again to change the size or frame rate.
   func start(width: Int, height: Int, frameRate: Int) async throws {
+    let sizeChanged = canvasSize != CGSize(width: width, height: height)
     canvasSize = CGSize(width: width, height: height)
     self.frameRate = frameRate
     if isStarted {
       await applyFrameRate()
       await applyCanvasSize()
+      // Snapshots are taken at the canvas size, so the ticker has to start again at the new size.
+      if sizeChanged, let page = webTickerPage {
+        showWebTicker(url: page.url, fps: page.fps)
+      }
       return
     }
 
@@ -92,11 +102,25 @@ final class Streamer {
     isStarted = true
   }
 
-  /// Replaces the ticker. The PNG must be the canvas size, since the compositor doesn't scale it.
-  func setOverlay(_ png: Data) {
-    guard let image = UIImage(data: png)?.cgImage else { return }
+  /// Shows the web ticker page over the video, snapshotted up to [fps] times a second while it changes.
+  func showWebTicker(url: URL, fps: Double) {
+    webTicker?.stop()
+    webTickerPage = (url, fps)
+    let ticker = WebTicker(url: url, pageSize: Self.tickerPageSize, outputSize: canvasSize) { [weak self] image in
+      Task { @ScreenActor in
+        self?.overlay?.cgImage = image
+      }
+    }
+    webTicker = ticker
+    ticker.start(fps: fps)
+  }
+
+  private func hideWebTicker() {
+    webTicker?.stop()
+    webTicker = nil
+    webTickerPage = nil
     Task { @ScreenActor in
-      self.overlay?.cgImage = image
+      self.overlay?.cgImage = nil
     }
   }
 
@@ -123,6 +147,7 @@ final class Streamer {
   /// Ends any stream and releases the camera and microphone.
   func shutdown() async {
     await tearDownSession()
+    hideWebTicker()
     state = .idle
     guard isStarted else { return }
     isStarted = false

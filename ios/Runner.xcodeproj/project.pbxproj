@@ -16,6 +16,7 @@
 		97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FD1CF9000F007C117D /* Assets.xcassets */; };
 		97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */; };
 		9D5583939F889D3F791C86D4 /* HaishinKit in Frameworks */ = {isa = PBXBuildFile; productRef = 78BF82EF0F6E17103C76DD19 /* HaishinKit */; };
+		AE7E2CD15C2EFEB5F28B789A /* WebTicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3281EF5BEEE98103420DB686 /* WebTicker.swift */; };
 		B7E069E12D69566ECFFDAA95 /* Pods_Runner.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5669AAD5A06A13ACA988700F /* Pods_Runner.framework */; };
 		BE00473382ACDC74E5BBF7FD /* StreamerPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = B517542922387CB23FFE3C45 /* StreamerPlugin.swift */; };
 		C03B65A80E277288666E4422 /* RTMPHaishinKit in Frameworks */ = {isa = PBXBuildFile; productRef = FD2655DC41CE27C5D9C6EDEA /* RTMPHaishinKit */; };
@@ -49,6 +50,7 @@
 		1498D2321E8E86230040F4C2 /* GeneratedPluginRegistrant.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GeneratedPluginRegistrant.h; sourceTree = "<group>"; };
 		1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GeneratedPluginRegistrant.m; sourceTree = "<group>"; };
 		227A9FF8D65683F0FFC7E653 /* Streamer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Streamer.swift; sourceTree = "<group>"; };
+		3281EF5BEEE98103420DB686 /* WebTicker.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WebTicker.swift; sourceTree = "<group>"; };
 		331C807B294A618700263BE5 /* RunnerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerTests.swift; sourceTree = "<group>"; };
 		331C8081294A63A400263BE5 /* RunnerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RunnerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = AppFrameworkInfo.plist; path = Flutter/AppFrameworkInfo.plist; sourceTree = "<group>"; };
@@ -108,6 +110,7 @@
 			children = (
 				227A9FF8D65683F0FFC7E653 /* Streamer.swift */,
 				B517542922387CB23FFE3C45 /* StreamerPlugin.swift */,
+				3281EF5BEEE98103420DB686 /* WebTicker.swift */,
 			);
 			path = Streaming;
 			sourceTree = "<group>";
@@ -405,6 +408,7 @@
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,
 				5766E8DC2F9111DD005DC40A /* Streamer.swift in Sources */,
 				BE00473382ACDC74E5BBF7FD /* StreamerPlugin.swift in Sources */,
+				AE7E2CD15C2EFEB5F28B789A /* WebTicker.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

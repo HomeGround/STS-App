@@ -180,6 +180,7 @@ void main() {
       'id': 'K7P2QXAB',
       'status': 'setup',
       'match_format': 'doubles',
+      'best_of': 3,
       'version': 0,
       'state': <String, dynamic>{},
       'sides': [

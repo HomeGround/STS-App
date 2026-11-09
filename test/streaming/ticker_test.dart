@@ -1,7 +1,4 @@
-import 'dart:typed_data';
-
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sts/streaming/ticker_painter.dart';
 import 'package:sts/streaming/ticker_snapshot.dart';
 
 /// What `get_ticker_snapshot` returns for a doubles match two points into game 2.
@@ -46,16 +43,5 @@ void main() {
     expect(match.score, [0, 0]);
     expect(match.servingSide, isNull);
     expect(match.call, '0-0-2');
-  });
-
-  test('draws the ticker as a PNG exactly the size of the stream', () async {
-    final match = TickerSnapshot.fromJson(snapshotJson());
-    for (final (width, height) in [(1920, 1080), (1280, 720)]) {
-      final png = await renderTicker(match, width: width, height: height);
-      expect(png.sublist(1, 4), 'PNG'.codeUnits);
-      // The PNG header holds the width and height as big-endian numbers.
-      final header = ByteData.sublistView(png, 16, 24);
-      expect((header.getUint32(0), header.getUint32(4)), (width, height));
-    }
   });
 }

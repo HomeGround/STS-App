@@ -40,10 +40,11 @@ final class StreamerPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
         height: arguments["height"] as? Int ?? 1080,
         frameRate: arguments["fps"] as? Int ?? 30
       )
-    case "setOverlay":
-      if let png = arguments["png"] as? FlutterStandardTypedData {
-        streamer?.setOverlay(png.data)
+    case "showWebTicker":
+      guard let text = arguments["url"] as? String, let url = URL(string: text) else {
+        throw StreamerError("That ticker address isn't valid.")
       }
+      streamer?.showWebTicker(url: url, fps: Double(arguments["fps"] as? Int ?? 15))
     case "goLive":
       guard let text = arguments["url"] as? String, let url = URL(string: text) else {
         throw StreamerError("That stream address isn't valid.")

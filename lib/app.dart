@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'backend/games_api.dart';
+import 'config.dart';
 import 'mqtt/broker.dart';
 import 'mqtt/match_broadcast.dart';
 import 'mqtt/match_feed.dart';
@@ -15,7 +16,7 @@ import 'streaming/stream.dart';
 const _brandOrange = Color(0xFFED9440);
 
 /// The scorer saves to the database and publishes to MQTT; the streamer only reads MQTT.
-final _broker = BrokerSettings.fromEnvironment();
+final _broker = BrokerSettings.fromConfig(AppConfig.current);
 final _broadcast = MatchBroadcast(_broker);
 final _feed = MatchFeed(_broker);
 
@@ -24,6 +25,7 @@ class StsApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    debugPrint('[startup] first screen built');
     return MaterialApp(
       title: 'STS',
       debugShowCheckedModeBanner: false,
@@ -67,7 +69,7 @@ class StsApp extends StatelessWidget {
               context,
               ConfigureStreamScreen(
                 lookupMatch: _feed.lookup,
-                onOpen: (context, setup) => _push(context, StreamScreen(setup: setup, watchMatch: _feed.watch)),
+                onOpen: (context, setup) => _push(context, StreamScreen(setup: setup)),
               ),
             ),
           ),

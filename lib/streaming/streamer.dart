@@ -25,8 +25,9 @@ class Streamer {
   Future<void> start(StreamQuality quality, {required int frameRate}) =>
       _channel.invokeMethod('start', {'width': quality.width, 'height': quality.height, 'fps': frameRate});
 
-  /// Replaces the ticker drawn over the video. [png] must be exactly the stream's size.
-  Future<void> setOverlay(Uint8List png) => _channel.invokeMethod('setOverlay', {'png': png});
+  /// Shows the web ticker [page] over the video, snapshotted up to [fps] times a second while it changes.
+  Future<void> showWebTicker(Uri page, {required int fps}) =>
+      _channel.invokeMethod('showWebTicker', {'url': page.toString(), 'fps': fps});
 
   /// Throws [PlatformException] with a message the person streaming can act on.
   Future<void> goLive(Uri url) => _channel.invokeMethod('goLive', {'url': url.toString()});

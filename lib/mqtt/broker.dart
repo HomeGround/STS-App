@@ -4,10 +4,25 @@ import 'dart:math';
 import 'package:mqtt_client/mqtt_client.dart';
 import 'package:mqtt_client/mqtt_server_client.dart';
 
+import '../config.dart';
+
 /// Where the MQTT broker is. Set in .env and passed with `--dart-define-from-file=.env`.
 class BrokerSettings {
   const BrokerSettings({required this.host, required this.port, this.username, this.password, this.useTls = false});
 
+  /// From the app's settings (.env).
+  factory BrokerSettings.fromConfig(AppConfig config) {
+    String? optional(String key) => config[key].isEmpty ? null : config[key];
+    return BrokerSettings(
+      host: config['MQTT_HOST'],
+      port: int.tryParse(config['MQTT_PORT']) ?? 1883,
+      username: optional('MQTT_USERNAME'),
+      password: optional('MQTT_PASSWORD'),
+      useTls: config['MQTT_TLS'].toLowerCase() == 'true',
+    );
+  }
+
+  /// From `--dart-define` values only, for tests run outside the app.
   factory BrokerSettings.fromEnvironment() {
     const username = String.fromEnvironment('MQTT_USERNAME');
     const password = String.fromEnvironment('MQTT_PASSWORD');
@@ -56,7 +71,12 @@ Future<MqttServerClient> connectToBroker(BrokerSettings settings, {required Stri
   } catch (error) {
     final refused = _refusal(client.connectionStatus?.returnCode);
     client.disconnect();
-    throw BrokerException(refused ?? "Couldn't reach the score server at ${settings.host}:${settings.port}.");
+    // The underlying error says why: a wrong address, a blocked port, an encryption mismatch and so on.
+    throw BrokerException(
+      refused ??
+          "Couldn't reach the score server at ${settings.host}:${settings.port}"
+              "${settings.useTls ? ' (encrypted)' : ''}. $error",
+    );
   }
   return client;
 }

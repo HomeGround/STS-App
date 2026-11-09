@@ -1,0 +1,22 @@
+{
+  // Run ▶ / F5 in VS Code. The app needs its Supabase and MQTT settings from .env, which are
+  // built into the app, so changing .env needs a full restart of the app (stop, then run again).
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "STS",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "toolArgs": ["--dart-define-from-file=.env"]
+    },
+    {
+      "name": "STS (release mode)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "flutterMode": "release",
+      "toolArgs": ["--dart-define-from-file=.env"]
+    }
+  ]
+}

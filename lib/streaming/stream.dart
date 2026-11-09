@@ -7,35 +7,30 @@ import 'package:flutter/services.dart';
 import '../widgets/landscape_lock.dart';
 import 'stream_settings.dart';
 import 'streamer.dart';
-import 'ticker_painter.dart';
 import 'ticker_snapshot.dart';
 
-/// Films the match and streams it with the live ticker burned into the video.
+/// Films the match and streams it with the web ticker burned into the video.
 class StreamScreen extends StatefulWidget {
-  const StreamScreen({super.key, required this.setup, required this.watchMatch, this.streamer = const Streamer()});
+  const StreamScreen({super.key, required this.setup, this.streamer = const Streamer()});
 
   final StreamSetup setup;
-
-  /// Every update the scorer publishes for the match, such as `MatchFeed.watch`.
-  final Stream<TickerSnapshot> Function(String matchId) watchMatch;
   final Streamer streamer;
+
+  /// How often the ticker page is snapshotted while it changes, such as during its score animations.
+  static const tickerFrameRate = 15;
 
   @override
   State<StreamScreen> createState() => _StreamScreenState();
 }
 
 class _StreamScreenState extends State<StreamScreen> with LandscapeLock {
-  late TickerSnapshot _match = widget.setup.match;
+  late final TickerSnapshot _match = widget.setup.match;
   var _isCameraReady = false;
   String? _cameraProblem;
 
   /// `idle`, `connecting`, `live` or `stopping`, as the native streamer reports it.
   var _state = 'idle';
   StreamSubscription<StreamerEvent>? _events;
-  StreamSubscription<TickerSnapshot>? _updates;
-
-  /// Ticker redraws run one after another, so the last one always shows the newest score.
-  var _drawing = Future<void>.value();
 
   bool get _isOnAir => _state == 'live' || _state == 'connecting';
 
@@ -48,7 +43,6 @@ class _StreamScreenState extends State<StreamScreen> with LandscapeLock {
 
   @override
   void dispose() {
-    _updates?.cancel();
     _events?.cancel();
     widget.streamer.shutdown();
     super.dispose();
@@ -57,31 +51,12 @@ class _StreamScreenState extends State<StreamScreen> with LandscapeLock {
   Future<void> _openCamera() async {
     try {
       await widget.streamer.start(widget.setup.quality, frameRate: widget.setup.frameRate);
-      await _drawTicker();
-      if (!mounted) return;
-      setState(() => _isCameraReady = true);
-      _updates = widget.watchMatch(_match.id).listen(
-        _onUpdate,
-        // The connection retries by itself; the ticker keeps the last score meanwhile.
-        onError: (Object error) => debugPrint('Match updates failed: $error'),
-      );
+      // The page follows the match over MQTT by itself, so the app doesn't need to send it scores.
+      await widget.streamer.showWebTicker(webTickerPage(_match.id), fps: StreamScreen.tickerFrameRate);
+      if (mounted) setState(() => _isCameraReady = true);
     } on PlatformException catch (error) {
       if (mounted) setState(() => _cameraProblem = error.message);
     }
-  }
-
-  /// Redraws the ticker for a newer score. Repeats and older messages are ignored.
-  void _onUpdate(TickerSnapshot latest) {
-    if (latest.version <= _match.version || !mounted) return;
-    setState(() => _match = latest);
-    _drawing = _drawing.then((_) => _drawTicker()).catchError((Object error) {
-      debugPrint('Ticker redraw failed: $error');
-    });
-  }
-
-  Future<void> _drawTicker() async {
-    final quality = widget.setup.quality;
-    await widget.streamer.setOverlay(await renderTicker(_match, width: quality.width, height: quality.height));
   }
 
   void _onEvent(StreamerEvent event) {
